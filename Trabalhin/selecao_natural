@@ -1,0 +1,44 @@
+void selecao_natural(FILE *arq, Lista *nome_arquivos_saida, int M, int nFunc, int n) {
+    rewind(arq);
+
+    // 1. Alocações e vetores auxiliares
+    TFunc *memoria[M];
+    int congelado_mem[M]; // 0 = ativo, 1 = congelado
+
+    TFunc *reservatorio[n];
+    int tam_res = 0; // Quantidade atual de itens no reservatório
+
+    int reg_lidos = 0;// Quantidade de registros lidos
+
+    // 2. Preenche a memória principal com M registros
+    for (int i = 0; i < M && reg_lidos < nFunc; i++) {
+        fseek(arq, reg_lidos * tamanho_registro(), SEEK_SET);
+        memoria[i] = le_funcionario(arq);
+        congelado_mem[i] = 0;
+        reg_lidos++;
+    }
+
+    // 3. Preenche o reservatório com n registros (se houver espaço/registros)
+    for (int i = 0; i < n && reg_lidos < nFunc; i++) {
+        fseek(arq, reg_lidos * tamanho_registro(), SEEK_SET);
+        reservatorio[i] = le_funcionario(arq);
+        tam_res++;
+        reg_lidos++;
+    }
+
+    FILE *p_saida = NULL;
+    char *nome_particao = nome_arquivos_saida->nome;
+    p_saida = fopen(nome_particao, "wb+");
+    nome_arquivos_saida = nome_arquivos_saida->prox;
+
+    int ultima_chave_gravada = -1;
+    int registros_na_memoria = M;
+
+    // O loop principal continuará enquanto houver registros na memória ou no reservatório
+    while (registros_na_memoria > 0) {
+        // TODO: Encontrar o menor elemento não congelado na memória, gravar, 
+        // gerenciar o reservatório e lidar com o congelamento geral quando necessário.
+    }
+
+    if (p_saida) fclose(p_saida);
+}
