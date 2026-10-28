@@ -1,44 +1,60 @@
 void selecao_natural(FILE *arq, Lista *nome_arquivos_saida, int M, int nFunc, int n) {
     rewind(arq);
 
-    // 1. Alocações e vetores auxiliares
     TFunc *memoria[M];
-    int congelado_mem[M]; // 0 = ativo, 1 = congelado
-
     TFunc *reservatorio[n];
-    int tam_res = 0; // Quantidade atual de itens no reservatório
+    int tam_mem = 0, tam_res = 0, reg_lidos = 0;
 
-    int reg_lidos = 0;// Quantidade de registros lidos
-
-    // 2. Preenche a memória principal com M registros
-    for (int i = 0; i < M && reg_lidos < nFunc; i++) {
+    // 1. enche a memória
+    while (tam_mem < M && reg_lidos < nFunc) {
         fseek(arq, reg_lidos * tamanho_registro(), SEEK_SET);
-        memoria[i] = le_funcionario(arq);
-        congelado_mem[i] = 0;
+        memoria[tam_mem++] = le_funcionario(arq);
         reg_lidos++;
     }
 
-    // 3. Preenche o reservatório com n registros (se houver espaço/registros)
-    for (int i = 0; i < n && reg_lidos < nFunc; i++) {
-        fseek(arq, reg_lidos * tamanho_registro(), SEEK_SET);
-        reservatorio[i] = le_funcionario(arq);
-        tam_res++;
-        reg_lidos++;
+    // cada volta deste while gera UMA partição
+    while (tam_mem > 0) {
+        if (nome_arquivos_saida == NULL) break;   // acabaram os nomes de partição
+        FILE *p = fopen(nome_arquivos_saida->nome, "wb+");
+        nome_arquivos_saida = nome_arquivos_saida->prox;
+        if (p == NULL) { printf("Erro ao criar partição\n"); break; }
+
+        int gravados = 0;
+
+        // 2. enquanto houver algo na memória, escolhe o menor e grava
+        while (tam_mem > 0) {
+            int pos = 0;
+            for (int i = 1; i < tam_mem; i++)
+                if (memoria[i]->cod < memoria[pos]->cod) pos = i;
+
+            TFunc *saiu = memoria[pos];
+            int ultima = saiu->cod;
+            fseek(p, gravados * tamanho_registro(), SEEK_SET);
+            salva_funcionario(saiu, p);
+            gravados++;
+            free(saiu);
+
+            // 3. repõe a vaga (só lê do arquivo se ainda há entrada e o reservatório não encheu)
+            if (reg_lidos < nFunc && tam_res < n) {
+                fseek(arq, reg_lidos * tamanho_registro(), SEEK_SET);
+                TFunc *novo = le_funcionario(arq);
+                reg_lidos++;
+
+                if (novo->cod < ultima) {
+                    reservatorio[tam_res++] = novo;      // vai para o reservatório
+                    memoria[pos] = memoria[--tam_mem];   // vaga some
+                } else {
+                    memoria[pos] = novo;                 // ocupa a vaga
+                }
+            } else {
+                memoria[pos] = memoria[--tam_mem];       // não repõe: memória encolhe
+            }
+        }
+        fclose(p);
+
+        // 4. reservatório vira a nova memória
+        for (int i = 0; i < tam_res; i++) memoria[i] = reservatorio[i];
+        tam_mem = tam_res;
+        tam_res = 0;
     }
-
-    FILE *p_saida = NULL;
-    char *nome_particao = nome_arquivos_saida->nome;
-    p_saida = fopen(nome_particao, "wb+");
-    nome_arquivos_saida = nome_arquivos_saida->prox;
-
-    int ultima_chave_gravada = -1;
-    int registros_na_memoria = M;
-
-    // O loop principal continuará enquanto houver registros na memória ou no reservatório
-    while (registros_na_memoria > 0) {
-        // TODO: Encontrar o menor elemento não congelado na memória, gravar, 
-        // gerenciar o reservatório e lidar com o congelamento geral quando necessário.
-    }
-
-    if (p_saida) fclose(p_saida);
 }
