@@ -1,79 +1,86 @@
-#include "intercalacao.h"
+#include "particoes.h"
 #include "funcionarios.h"
-#include <limits.h>
+#include "lista.h"
 #include <stdio.h>
 #include <stdlib.h>
 
-void intercalacao_basico(char *nome_arquivo_saida, int num_p, Lista *nome_particoes) {
-    int fim = 0;
-    FILE *out;
+FILE *base = fopen("output\\funcionarios.dat", "wb");
+FILE *indice = fopen("output\\indice.dat", "wb");
+FILE *indiceNaoOrdenado = fopen("output\\indice_nao_ordenado.dat", "wb");
 
-    if ((out = fopen(nome_arquivo_saida, "wb")) == NULL) {
-        printf("Erro ao abrir arquivo de saída\n");
-        return;
-    }
-
-    TVet v[num_p];
-
-    for (int i = 0; i < num_p; i++) {
-        v[i].f = fopen(nome_particoes->nome, "rb");
-        v[i].aux_p = 0;
-        
-        if (v[i].f != NULL) {
-            fseek(v[i].f, v[i].aux_p * tamanho_registro(), SEEK_SET);
-            TFunc *f = le_funcionario(v[i].f);
-            
-            if (f == NULL) {
-                v[i].func = funcionario(INT_MAX, "", "", "", 0.0);
-            } else {
-                v[i].func = f;
-            }
-        } else {
-            fim = 1;
-        }
-        nome_particoes = nome_particoes->prox;
-    }
-
-    int aux = 0;
-    while (!fim) {
-        int menor = INT_MAX;
-        int pos_menor = -1;
-
-        for (int i = 0; i < num_p; i++) {
-            if (v[i].func->cod < menor) {
-                menor = v[i].func->cod;
-                pos_menor = i;
-            }
-        }
-
-        if (menor == INT_MAX) {
-            fim = 1;
-        } else {
-            fseek(out, aux * tamanho_registro(), SEEK_SET);
-            salva_funcionario(v[pos_menor].func, out);
-            
-            v[pos_menor].aux_p++;
-            fseek(v[pos_menor].f, v[pos_menor].aux_p * tamanho_registro(), SEEK_SET);
-            TFunc *f = le_funcionario(v[pos_menor].f);
-            aux++;
-
-            if (f == NULL) {
-                v[pos_menor].func = funcionario(INT_MAX, "", "", "", 0.0);
-            } else {
-                v[pos_menor].func = f;
-            }
-        }
-    }
-
-    for (int i = 0; i < num_p; i++) {
-        if (v[i].f != NULL) {
-            fclose(v[i].f);
-        }
-    }
-    
-    fclose(out);
+if (base == NULL || indice == NULL || indiceNaoOrdenado == NULL) {
+    perror("Erro ao criar arquivos de teste");
+    if (base != NULL) fclose(base);
+    if (indice != NULL) fclose(indice);
+    if (indiceNaoOrdenado != NULL) fclose(indiceNaoOrdenado);
+    return 1;
 }
 
-void intercalacao_arvore_de_vencedores(TPilha **pilha, int *vetTop, char *nome_arquivo_saida, int num_p) {
-    // Implementar primeira parte do trabalho
+cria_base_dados_funcionarios_teste(base, indice, indiceNaoOrdenado, 20);
+
+fclose(base);
+fclose(indice);
+fclose(indiceNaoOrdenado);
+
+int main(void) {
+    FILE *entrada = fopen("output\\funcionarios.dat", "rb");
+    if (entrada == NULL) {
+        perror("Erro ao abrir arquivo de funcionarios");
+        return 1;
+    }
+
+    fseek(entrada, 0, SEEK_END);
+    long bytes = ftell(entrada);
+    int tamanho = tamanho_registro();
+
+    if (bytes < 0 || tamanho <= 0 || bytes % tamanho != 0) {
+        fprintf(stderr, "Arquivo de funcionarios invalido.\n");
+        fclose(entrada);
+        return 1;
+    }
+
+    int nFunc = (int)(bytes / tamanho);
+    rewind(entrada);
+
+    if (nFunc == 0) {
+        printf("O arquivo nao possui funcionarios.\n");
+        fclose(entrada);
+        return 0;
+    }
+
+    Lista *particoes = NULL;
+
+    /* Cria espaço para até nFunc partições. */
+    for (int i = nFunc; i >= 1; i--) {
+        char nome[80];
+        snprintf(nome, sizeof(nome), "output\\particao_%03d.dat", i);
+
+        char *nome_lista = cria_str(nome);
+        if (nome_lista == NULL) {
+            fprintf(stderr, "Erro ao alocar nome da particao.\n");
+            libera(particoes);
+            fclose(entrada);
+            return 1;
+        }
+
+        Lista *nova = cria(nome_lista, particoes);
+        if (nova == NULL) {
+            free(nome_lista);
+            libera(particoes);
+            fclose(entrada);
+            return 1;
+        }
+        particoes = nova;
+    }
+
+    int M = 3; /* capacidade da memória principal */
+    int n = 2; /* capacidade do reservatório */
+
+    selecao_natural(entrada, particoes, M, nFunc, n);
+
+    fclose(entrada);
+    libera(particoes);
+
+    printf("Geracao das particoes concluida.\n");
+    return 0;
 }
